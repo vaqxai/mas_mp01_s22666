@@ -9,5 +9,6 @@ edition = "2021"
 # Container with persistent unique keys to access stored values
 slotmap = {version = "1.0.6", features = ["serde"] }
 serde = { version = "1.0.159", features = ["derive"] }
+typetag = "0.2.7"
 serde_json = "1.0.95"
 regex = "1.7.3"

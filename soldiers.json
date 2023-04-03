@@ -1,1 +1,1 @@
-[{"value":null,"version":0},{"value":{"name":"John","rank":"Private"},"version":1},{"value":{"name":"John2","rank":"Private"},"version":1}]
+[{"value":null,"version":0},{"value":{"type":"StandardSoldier","name":"John","rank":"Private","family_address":null},"version":1},{"value":{"type":"StandardSoldier","name":"John2","rank":"Private","family_address":null},"version":1}]

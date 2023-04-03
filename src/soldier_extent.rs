@@ -1,15 +1,17 @@
-use crate::soldier::Soldier;
+use crate::soldier::{Soldier, StandardSoldier};
 use crate::rank::Rank;
 use regex::Regex;
 use slotmap::{SlotMap, DefaultKey};
 use serde::{Serialize, Deserialize};
 
 type SoldierKey = DefaultKey;
+
 #[derive(Serialize, Deserialize)]
 pub struct SoldierExtent {
-    pub all : SlotMap<SoldierKey, Soldier>
+    pub all : SlotMap<SoldierKey, Box<dyn Soldier>>
 }
 
+type DefaultSoldierType = StandardSoldier;
 impl SoldierExtent {
     pub fn new() -> SoldierExtent {
         SoldierExtent {
@@ -18,18 +20,15 @@ impl SoldierExtent {
     }
 
     // create a new soldier and return their key
-    pub fn create(&mut self, name : String, rank : Rank) -> SoldierKey {
-        let soldier = Soldier {
-            name : name,
-            rank : rank
-        };
-        self.all.insert(soldier)
+    pub fn create<T: Soldier + 'static>(&mut self, name : String, rank : Option<Rank>) -> SoldierKey {
+        let soldier = T::new(name, rank);
+        self.all.insert(Box::new(soldier))
     }
 
     // search in all soldiers and return a ref to the first one with the given name
     pub fn key_by_name(&self, name : &str) -> Option<DefaultKey> {
         for (key, soldier) in self.all.iter() {
-            if soldier.name == name {
+            if soldier.get_name() == name {
                 return Some(key);
             }
         }
@@ -40,7 +39,7 @@ impl SoldierExtent {
     pub fn key_by_name_regex(&self, regex: &Regex) -> Vec<DefaultKey> {
         let mut result = Vec::new();
         for (key, soldier) in self.all.iter() {
-            if regex.is_match(&soldier.name) {
+            if regex.is_match(&soldier.get_name()) {
                 result.push(key);
             }
         }
@@ -51,7 +50,7 @@ impl SoldierExtent {
     pub fn key_by_rank(&self, rank : Rank) -> Vec<DefaultKey> {
         let mut result = Vec::new();
         for (key, soldier) in self.all.iter() {
-            if soldier.rank == rank {
+            if soldier.get_rank() == &rank {
                 result.push(key);
             }
         }
@@ -59,22 +58,28 @@ impl SoldierExtent {
     }
 
     // return a valid ref to soldier if it exists
-    pub fn get(&self, key : SoldierKey) -> Option<&Soldier> {
-        self.all.get(key)
+    pub fn get(&self, key : SoldierKey) -> Option<&dyn Soldier> {
+        match self.all.get(key) {
+            Some(soldier) => Some(soldier.as_ref()),
+            None => None
+        }
     }
 
-    pub fn get_multiple(&self, keys : Vec<SoldierKey>) -> Vec<&Soldier> {
+    pub fn get_multiple(&self, keys : Vec<SoldierKey>) -> Vec<&dyn Soldier> {
         let mut result = Vec::new();
         for key in keys {
             if let Some(soldier) = self.all.get(key) {
-                result.push(soldier);
+                result.push(soldier.as_ref());
             }
         }
         result
     }
 
-    pub fn get_mut(&mut self, key : SoldierKey) -> Option<&mut Soldier> {
-        self.all.get_mut(key)
+    pub fn get_mut(&mut self, key : SoldierKey) -> Option<&mut dyn Soldier> {
+        match self.all.get_mut(key) {
+            Some(soldier) => Some(soldier.as_mut()),
+            None => None
+        }
     }
 
     // remove a soldier from the extent
@@ -89,7 +94,7 @@ impl SoldierExtent {
 
     pub fn load_from_file(&mut self, path : &str) {
         let serialized = std::fs::read_to_string(path).unwrap();
-        let deserialized : SlotMap<SoldierKey, Soldier> = serde_json::from_str(&serialized).unwrap();
+        let deserialized : SlotMap<SoldierKey, Box<dyn Soldier>> = serde_json::from_str(&serialized).unwrap();
         self.all = deserialized;
     }
 
@@ -97,23 +102,23 @@ impl SoldierExtent {
 
 #[cfg(test)]
 mod tests {
-    use crate::{soldier_extent::SoldierExtent, rank::Rank};
+    use crate::{soldier_extent::{SoldierExtent, DefaultSoldierType}, rank::Rank};
 
     #[test]
     fn create() {
         let mut soldiers = SoldierExtent::new();
-        soldiers.create("John".to_string(), Rank::Private);
-        soldiers.create("John2".to_string(), Rank::Private);
+        soldiers.create::<DefaultSoldierType>("John".to_string(), None);
+        soldiers.create::<DefaultSoldierType>("John2".to_string(), None);
         assert!(soldiers.key_by_name("John").is_some());
         assert!(soldiers.key_by_name("John2").is_some());
-        assert!(soldiers.key_by_rank(Rank::Private).len() == 2);
+        assert!(soldiers.key_by_rank(DefaultSoldierType::DEFAULT_RANK).len() == 2);
     }
 
     #[test]
     fn save() {
         let mut soldiers = SoldierExtent::new();
-        soldiers.create("John".to_string(), Rank::Private);
-        soldiers.create("John2".to_string(), Rank::Private);
+        soldiers.create::<DefaultSoldierType>("John".to_string(), None);
+        soldiers.create::<DefaultSoldierType>("John2".to_string(), None);
         let path = "soldiers.json";
         soldiers.save_all(path);
         assert!(std::fs::read(path).is_ok());
@@ -122,29 +127,29 @@ mod tests {
     #[test]
     fn save_and_load() {
         let mut soldiers = SoldierExtent::new();
-        soldiers.create("John".to_string(), Rank::Private);
-        soldiers.create("John2".to_string(), Rank::Private);
+        soldiers.create::<DefaultSoldierType>("John".to_string(), None);
+        soldiers.create::<DefaultSoldierType>("John2".to_string(), None);
         let path = "soldiers.json";
         soldiers.save_all(path);
         let mut soldiers2 = SoldierExtent::new();
         soldiers2.load_from_file(path);
         assert!(soldiers2.key_by_name("John").is_some());
         assert!(soldiers2.key_by_name("John2").is_some());
-        assert!(soldiers2.key_by_rank(Rank::Private).len() == 2);
+        assert!(soldiers2.key_by_rank(DefaultSoldierType::DEFAULT_RANK).len() == 2);
     }
 
     #[test]
     fn mutate() {
         let mut soldiers = SoldierExtent::new();
-        let key = soldiers.create("John".to_string(), Rank::Private);
+        let key = soldiers.create::<DefaultSoldierType>("John".to_string(), None);
         { // mutate in a separate scope to keep ownership happy
             let soldier = soldiers.get_mut(key);
             assert!(soldier.is_some()); // test if we can retrieve them
             let soldier = soldier.unwrap(); // a mutable ref to the soldier
-            assert!(soldier.name == "John"); // test if the name is correct
-            assert!(soldier.rank == Rank::Private); // test if the rank is correct
-            soldier.name = "Bob".to_string(); // mutate the name
-            soldier.rank = Rank::Captain; // mutate the rank
+            assert!(soldier.get_name() == "John"); // test if the name is correct
+            assert!(soldier.get_rank() == &DefaultSoldierType::DEFAULT_RANK); // test if the rank is correct
+            soldier.set_name("Bob".to_string()); // mutate the name
+            soldier.set_rank(Rank::Captain); // mutate the rank
             // ref is dropped by the end of this scope
         }
 
@@ -152,8 +157,8 @@ mod tests {
             let soldier = soldiers.get(key);
             assert!(soldier.is_some()); // test if we can retrieve them
             let soldier = soldier.unwrap(); // a ref to the soldier
-            assert!(soldier.name == "Bob"); // test if the name is correct
-            assert!(soldier.rank == Rank::Captain); // test if the rank is correct
+            assert!(soldier.get_name() == "Bob"); // test if the name is correct
+            assert!(soldier.get_rank() == &Rank::Captain); // test if the rank is correct
             // ref is dropped by the end of this scope
         }
     }
@@ -163,9 +168,9 @@ mod tests {
         use regex::Regex;
 
         let mut soldiers = SoldierExtent::new();
-        soldiers.create("John".to_string(), Rank::Private);
-        soldiers.create("Joe".to_string(), Rank::Private);
-        soldiers.create("Bob".to_string(), Rank::Private);
+        soldiers.create::<DefaultSoldierType>("John".to_string(), None);
+        soldiers.create::<DefaultSoldierType>("Joe".to_string(), None);
+        soldiers.create::<DefaultSoldierType>("Bob".to_string(), None);
 
         let reg = Regex::new(r"Jo.*").unwrap();
         let filtered_soldiers = soldiers.key_by_name_regex(&reg);
@@ -175,8 +180,8 @@ mod tests {
     #[test]
     fn remove() {
         let mut soldiers = SoldierExtent::new();
-        let key = soldiers.create("John".to_string(), Rank::Private);
-        soldiers.create("Joe".to_string(), Rank::Private);
+        let key = soldiers.create::<DefaultSoldierType>("John".to_string(), None);
+        soldiers.create::<DefaultSoldierType>("Joe".to_string(), None);
 
         soldiers.remove(key);
 
