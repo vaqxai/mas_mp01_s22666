@@ -4,7 +4,7 @@ use regex::Regex;
 use slotmap::{SlotMap, DefaultKey};
 use serde::{Serialize, Deserialize};
 
-type SoldierKey = DefaultKey;
+pub type SoldierKey = DefaultKey;
 
 #[derive(Serialize, Deserialize)]
 pub struct SoldierExtent {
@@ -14,7 +14,7 @@ pub struct SoldierExtent {
 type DefaultSoldierType = StandardSoldier;
 
 // "Prawdziwy" overloading
-macro_rules! create_soldier{
+macro_rules! create_soldier {
 
     (@gobble $str:expr) => {{
         trait StrGobbler {
@@ -233,5 +233,20 @@ mod tests {
         soldiers.remove(key);
 
         assert!(soldiers.key_by_name("John").is_none());
+    }
+
+    #[test]
+    fn create_squad() {
+        use crate::squad::Squad;
+
+        let mut soldiers = SoldierExtent::new();
+        let john_key = create_soldier!(soldiers, "John");
+        let joe_key = create_soldier!(soldiers, "Joe");
+
+        let mut squad_alpha = Squad::new("Alpha".to_string(), john_key);
+        squad_alpha.add_member(joe_key);
+
+        assert!(squad_alpha.get_leader() == &john_key);
+        assert!(squad_alpha.get_soldier_count() == 2);
     }
 }

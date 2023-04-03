@@ -1,4 +1,6 @@
-struct Squad {
+use crate::soldier_extent::SoldierKey;
+
+pub struct Squad {
     name: String,
     leader: SoldierKey,
     members: Vec<SoldierKey>,
@@ -30,6 +32,16 @@ impl Squad {
     }
 
     pub fn set_leader(&mut self, new_leader: SoldierKey) {
+
+        // old leader becomes a member
+        // maybe we should expell the old leader?
+        self.members.push(self.leader);
+
+        if self.members.contains(&new_leader) {
+            // remove new leader from members if they are a member to prevent duplication
+            self.members.retain(|&val| val != new_leader);
+        }
+
         self.leader = new_leader;
     }
 
