@@ -12,6 +12,44 @@ pub struct SoldierExtent {
 }
 
 type DefaultSoldierType = StandardSoldier;
+
+// "Prawdziwy" overloading
+macro_rules! create_soldier{
+
+    (@gobble $str:expr) => {{
+        trait StrGobbler {
+            fn gobble(self) -> String;
+        }
+    
+        impl StrGobbler for &str {
+            fn gobble(self) -> String { self.to_string() }
+        }
+    
+        impl StrGobbler for String {
+            fn gobble(self) -> String { self }
+        }
+
+        $str.gobble()
+    }};
+
+    ($sldext:expr, $name:expr) => {
+        create_soldier!($sldext, $name, DefaultSoldierType)
+    };
+
+    ($sldext:expr, $name:expr, $typ:ty) => {
+        $sldext.create::<$typ>(create_soldier!(@gobble $name))
+    };
+
+    ($sldext:expr, $name:expr, $rank:expr) => {
+        create_soldier!($sldext, create_soldier!(@gobble $name), $rank, DefaultSoldierType)
+    };
+
+    ($sldext:expr, $name:expr, $rank:expr, $typ:ty) => {
+        $sldext.create_with_rank::<$typ>(create_soldier!(@gobble $name), $rank)
+    };
+
+}
+
 impl SoldierExtent {
     pub fn new() -> SoldierExtent {
         SoldierExtent {
@@ -19,8 +57,17 @@ impl SoldierExtent {
         }
     }
 
+    // Można to uznać za przeciążenie moim zdaniem
+    // "prawdziwe" przeciążenie (gdzie nazwa funkcji jest zawsze taka sama) jest możliwe tylko przy użyciu makr
+    // dlatego mamy zrobione makro create_soldier!(extent, name) lub create_soldier!(extent, name, rank)
+    
+    // default rank
+    pub fn create<T: Soldier + 'static>(&mut self, name: String) -> SoldierKey {
+        self.create_with_rank::<T>(name, None)
+    }
+
     // create a new soldier and return their key
-    pub fn create<T: Soldier + 'static>(&mut self, name : String, rank : Option<Rank>) -> SoldierKey {
+    pub fn create_with_rank<T: Soldier + 'static>(&mut self, name : String, rank : Option<Rank>) -> SoldierKey {
         let soldier = T::new(name, rank);
         self.all.insert(Box::new(soldier))
     }
@@ -107,8 +154,8 @@ mod tests {
     #[test]
     fn create() {
         let mut soldiers = SoldierExtent::new();
-        soldiers.create::<DefaultSoldierType>("John".to_string(), None);
-        soldiers.create::<DefaultSoldierType>("John2".to_string(), None);
+        create_soldier!(soldiers, "John");
+        create_soldier!(soldiers, "John2");
         assert!(soldiers.key_by_name("John").is_some());
         assert!(soldiers.key_by_name("John2").is_some());
         assert!(soldiers.key_by_rank(DefaultSoldierType::DEFAULT_RANK).len() == 2);
@@ -117,8 +164,8 @@ mod tests {
     #[test]
     fn save() {
         let mut soldiers = SoldierExtent::new();
-        soldiers.create::<DefaultSoldierType>("John".to_string(), None);
-        soldiers.create::<DefaultSoldierType>("John2".to_string(), None);
+        create_soldier!(soldiers, "John");
+        create_soldier!(soldiers, "John2");
         let path = "soldiers.json";
         soldiers.save_all(path);
         assert!(std::fs::read(path).is_ok());
@@ -127,8 +174,8 @@ mod tests {
     #[test]
     fn save_and_load() {
         let mut soldiers = SoldierExtent::new();
-        soldiers.create::<DefaultSoldierType>("John".to_string(), None);
-        soldiers.create::<DefaultSoldierType>("John2".to_string(), None);
+        create_soldier!(soldiers, "John");
+        create_soldier!(soldiers, "John2");
         let path = "soldiers.json";
         soldiers.save_all(path);
         let mut soldiers2 = SoldierExtent::new();
@@ -141,7 +188,7 @@ mod tests {
     #[test]
     fn mutate() {
         let mut soldiers = SoldierExtent::new();
-        let key = soldiers.create::<DefaultSoldierType>("John".to_string(), None);
+        let key = create_soldier!(soldiers, "John");
         { // mutate in a separate scope to keep ownership happy
             let soldier = soldiers.get_mut(key);
             assert!(soldier.is_some()); // test if we can retrieve them
@@ -168,9 +215,9 @@ mod tests {
         use regex::Regex;
 
         let mut soldiers = SoldierExtent::new();
-        soldiers.create::<DefaultSoldierType>("John".to_string(), None);
-        soldiers.create::<DefaultSoldierType>("Joe".to_string(), None);
-        soldiers.create::<DefaultSoldierType>("Bob".to_string(), None);
+        create_soldier!(soldiers, "John");
+        create_soldier!(soldiers, "Joe");
+        create_soldier!(soldiers, "Bob");
 
         let reg = Regex::new(r"Jo.*").unwrap();
         let filtered_soldiers = soldiers.key_by_name_regex(&reg);
@@ -180,8 +227,8 @@ mod tests {
     #[test]
     fn remove() {
         let mut soldiers = SoldierExtent::new();
-        let key = soldiers.create::<DefaultSoldierType>("John".to_string(), None);
-        soldiers.create::<DefaultSoldierType>("Joe".to_string(), None);
+        let key = create_soldier!(soldiers, "John");
+        create_soldier!(soldiers, "Joe");
 
         soldiers.remove(key);
 
