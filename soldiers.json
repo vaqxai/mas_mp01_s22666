@@ -1,1 +1,1 @@
-[{"value":null,"version":0},{"value":{"type":"StandardSoldier","name":"John","rank":"Private","family_address":null},"version":1},{"value":{"type":"StandardSoldier","name":"John2","rank":"Private","family_address":null},"version":1}]
+[{"value":null,"version":0},{"value":{"type":"StandardSoldier","name":"John","rank":"Private","family_address":null},"version":1},{"value":{"type":"Engineer","name":"Joe","rank":"Corporal","family_address":null,"specialization":null},"version":1}]

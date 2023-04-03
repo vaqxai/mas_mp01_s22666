@@ -7,7 +7,7 @@ pub trait Pay {
 }
 
 #[typetag::serde(tag = "type")]
-pub trait Soldier: Pay {
+pub trait Soldier: Pay + std::fmt::Debug {
 
     fn get_name(&self) -> &str;
     fn set_name(&mut self, new_name: String);

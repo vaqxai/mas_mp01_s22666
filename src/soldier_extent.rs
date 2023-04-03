@@ -11,9 +11,10 @@ pub struct SoldierExtent {
     pub all : SlotMap<SoldierKey, Box<dyn Soldier>>
 }
 
-type DefaultSoldierType = StandardSoldier;
+pub type DefaultSoldierType = StandardSoldier;
 
 // "Prawdziwy" overloading
+#[macro_export]
 macro_rules! create_soldier {
 
     (@gobble $str:expr) => {{
@@ -156,6 +157,7 @@ mod tests {
         let mut soldiers = SoldierExtent::new();
         create_soldier!(soldiers, "John");
         create_soldier!(soldiers, "John2");
+
         assert!(soldiers.key_by_name("John").is_some());
         assert!(soldiers.key_by_name("John2").is_some());
         assert!(soldiers.key_by_rank(DefaultSoldierType::DEFAULT_RANK).len() == 2);

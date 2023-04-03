@@ -1,5 +1,6 @@
 use crate::soldier_extent::SoldierKey;
 
+#[derive(Debug, Clone)]
 pub struct Squad {
     name: String,
     leader: SoldierKey,

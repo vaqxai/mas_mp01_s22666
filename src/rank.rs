@@ -53,3 +53,20 @@ impl Rank {
     }
 
 }
+
+use std::fmt;
+
+impl std::fmt::Display for Rank {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Rank::Private => write!(f, "Private"),
+            Rank::Corporal => write!(f, "Corporal"),
+            Rank::Sergeant => write!(f, "Sergeant"),
+            Rank::Lieutenant => write!(f, "Lieutenant"),
+            Rank::Captain => write!(f, "Captain"),
+            Rank::Major => write!(f, "Major"),
+            Rank::Colonel => write!(f, "Colonel"),
+            Rank::General => write!(f, "General"),
+        } // yeah yeah not perfect, shut up
+    }
+}
